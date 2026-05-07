@@ -23,7 +23,7 @@ library(caret)
 ```{r}
 # load the data
 
-df <- read.csv("health data.csv")
+df <- read.csv("data set.csv")
 
 #view the data set
 View(df)
