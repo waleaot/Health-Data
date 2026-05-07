@@ -1,0 +1,621 @@
+---
+title: 'Recognising Patterns & predicting outcomes. A case study of a diabetes data
+  set '
+date: '2024'
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r}
+#load the neccessary libraries 
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(lessR)
+ library(reshape2)
+library(ISLR)
+library(caret)
+
+```
+
+
+```{r}
+# load the data
+
+df <- read.csv("diabetes_prediction_dataset.csv")
+
+#view the data set
+View(df)
+```
+
+
+```{r}
+#Examine the data
+str(df)
+```
+
+The data set is consists of 100,000 observations of 9 variables.
+
+We have to re code some of the variables, as they are factors or independent variables
+
+```{r}
+df$hypertension <- as.factor(df$hypertension)
+
+
+df$heart_disease <- as.factor(df$heart_disease)
+
+df$smoking_history <- as.factor(df$smoking_history)
+
+df$diabetes <- as.factor(df$diabetes)
+
+#recheck data frame new structure
+str(df)
+```
+# check for missing data
+
+```{r}
+sapply(df, function(x) sum(is.na(x)))
+
+
+```
+
+We have a complete data set!
+
+## Exploratory analysis
+
+```{r}
+#The gender make up of the participants
+
+sex_number <- df %>% group_by(gender) %>% summarise(Freq = n())
+
+sex_number
+
+sum(sex_number$Freq)
+
+```
+
+
+
+```{r}
+attach(df)
+# Create a table from the data
+gender_table <- table(gender)
+
+# Define custom colors (blue and cyan)
+colors <- c("orange", "cyan")
+
+# Plot the pie chart with custom colors
+sex <- pie(gender_table, labels = paste0(names(gender_table), ": ", round(prop.table(gender_table) * 100, 1), "%"), col = colors)
+
+title('Plot of Gender', col.main = 'black', cex.main = 1, font.main = 4, adj = 0, line = 0)
+
+```
+
+There are more females than there are males. Only a handful of persons (18 in number) have not indicated their gender.
+
+We know proceed to check the age distribution.
+
+``
+```{r}
+# Customized histogram
+ ggplot(df, aes(x = age)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "cyan") +
+  geom_vline(aes(xintercept = mean(age)), color = "red", linetype = "dashed") +
+  labs(title = "Age Distribution")
+```
+
+
+
+The histogram shows that we have ages from 0 to 80 all represented.
+The average age stands at 42. 
+
+Age 80 is the modal age. This mean we have more people covered in the age bracket than all the rest of the ages recorded. 
+
+Breaking the age in class interval shows we have more people in the age category of (40 - 60). 
+
+
+```{r}
+# Customized histogram using class intervals
+
+ ggplot(df, aes(x = age)) +
+  geom_histogram(bins = 20, color = "black", fill = "cyan") +
+  geom_vline(aes(xintercept = mean(age)), color = "red", linetype = "dashed") +
+  labs(title = "Age Distribution")
+
+```
+
+
+To further understand the decomposition of the age structure by gender, the plot below has the following to reveal:
+
+```{r}
+#age distribution
+
+# Create the histogram
+
+ggplot(df, aes(x = age, fill = gender)) +
+  geom_histogram(bins = 20, position = "dodge") +
+  labs(title = "Age Distribution by Gender")
+
+
+```
+
+We already know there are less males than females, this chart suggest the age distribution among the gender follows a similar distribution. 
+
+
+We delve further to look at hypertension incidence aggregated by gender
+
+```{r}
+
+hypertension_status <- df %>% group_by(gender, hypertension) %>% summarise( freq = n(), .groups= "drop") %>% arrange(desc(hypertension))
+
+
+hypertension_status
+
+```
+
+```{r}
+
+#make it a plot
+a <- ggplot(hypertension_status, aes( x= gender, y = freq, fill = hypertension))+ 
+  geom_bar(  stat = "identity") + labs( title = "plot of gender hypertension status") 
+
+a + ylab ("Number of persons") 
+
+
+```
+
+There are more females who are hypertensive than there are males.
+There are also more females than males who are not hypertensive.
+
+From the gender break down pie chart, we understand that there are more females than males in the data set.
+
+Let's take  a closer look at the figures who are hypertensive
+
+```{r}
+
+hyper_positive <- hypertension_status %>% filter(hypertension == "1")
+hyper_positive
+
+```
+
+```{r}
+#make it a plot
+
+b <- ggplot(hyper_positive, aes( x= gender, y = freq, fill = gender))+ 
+  geom_bar(  stat = "identity") + labs( title = "plot of gender with hypertension ") 
+
+b  + ylab("Number of persons")
+
+```
+Above is a bar chart of the number of males & females who have hypertension.
+
+The figures across the genders are close.  The difference is about 900. 
+
+
+Next line of action is get insight from the heart disease perspective.
+
+
+```{r}
+
+Heart_disease_status <- df %>% group_by(gender, heart_disease) %>% summarise( freq = n(), .groups= "drop") %>% arrange(desc(heart_disease))
+
+Heart_disease_status
+
+```
+
+
+```{r}
+
+hd <- ggplot(Heart_disease_status, aes( x= gender, y = freq, fill = heart_disease))+ 
+  geom_bar(  stat = "identity") + labs( title = "plot of gender with or no heart disease status") 
+
+hd + ylab ("Number of persons")
+
+```
+The chart shows the majority of the population are free from heart disease.
+
+And there are more males than females who have heart diseases. 
+
+```{r}
+#breaking down the analysis to see population with heart disease
+
+heart_illness <- Heart_disease_status %>% filter(heart_disease == "1")
+
+heart_illness
+
+```
+
+```{r}
+hd  <- ggplot(heart_illness, aes( x= gender, y = freq, fill = gender))+ 
+  geom_bar(  stat = "identity") + labs( title = "plot of gender with heart disease ") 
+
+hd  + ylab("Number of persons")
+
+```
+
+there are more males this time around with an heart disease than females. 
+
+
+We repeat the procedure for diabetes.
+
+```{r}
+
+diabetes_status <- df %>% group_by(gender, diabetes) %>% summarise( freq = n(), .groups= "drop") %>% arrange(desc(diabetes))
+
+
+diabetes_status
+
+```
+
+
+
+
+```{r}
+
+db <- ggplot(diabetes_status, aes( x= gender, y = freq, fill = diabetes))+ 
+  geom_bar(  stat = "identity") + labs( title = "plot of gender diabetics status") 
+
+db + ylab ("Number of persons")
+```
+We see yet again that majority of the population are diabetes free. 
+We shall drill down to look at the population testes positive to diabetes.
+
+```{r}
+diabetics_positive <- diabetes_status %>% filter(diabetes == "1")
+
+diabetics_positive
+
+```
+
+```{r}
+
+dbplot <- ggplot(diabetics_positive, aes( x= gender, y = freq, fill = gender))+ 
+  geom_bar(  stat = "identity") + labs( title = "plot of gender with diabetes ") 
+
+dbplot  + ylab("Number of persons")
+
+```
+There are almost the same number of male as female who tested positive to diabetes. 
+
+
+Drilling into the smoking history column.
+
+```{r}
+
+smoking_status <- df %>% group_by(gender, smoking_history) %>% summarise( freq = n(), .groups= "drop") %>% arrange(desc(smoking_history))
+
+
+smoking_status
+
+```
+
+
+```{r}
+#make it a plot
+smo <- ggplot(smoking_status, aes( x= gender, y = freq, fill = smoking_history))+ 
+  geom_bar(  stat = "identity") + labs( title = "plot of gender by smoking history") 
+
+smo + ylab ("Number of persons")
+
+```
+
+There is a similarity in the numbers or proportions across both genders with their smoking history.
+
+It's worth mentioning that a good number of the population have never smoked or has a 'no smoke' history or no longer a current smoker. 
+
+we would now filter the data to reveal information about the population who has been a former smoker, a current and ever smoker.
+
+```{r}
+
+smokers <- smoking_status %>% filter(smoking_history == "former" | smoking_history == "current" | smoking_history == "ever" )
+
+smokers
+
+```
+
+
+```{r}
+
+smo_plo <- ggplot(smokers, aes( x= gender, y = freq, fill = smoking_history))+ 
+  geom_bar(  stat = "identity") + labs( title = "plot of gender with smoking history ") 
+
+smo_plo  + ylab("Number of persons")
+
+```
+The figures of each category across the gender are similar are almost of the same number. 
+
+smoking has an habit is not gender specific. 
+
+To get a proper understanding statistic for the numerical columns in the data, we have to plot boxplots. 
+
+```{r}
+
+
+# Melt the data
+melt_df <- df %>% select (1,6,7,8) 
+
+melted_df <-  melt(melt_df, id.vars = "gender")
+
+# Create the  boxplot individually
+
+#for bmi
+
+melt_bmi <- melted_df %>%  filter(variable == "bmi" & gender != "Other")
+
+ggplot(melt_bmi, aes(x = gender, y = value, fill = variable)) +
+  geom_boxplot(color = "blue") +
+  labs(title = "Grouped Boxplot for BMI")
+
+#for HbA1c_level
+
+melt_hb <- melted_df %>%  filter(variable == "HbA1c_level" & gender != "Other")
+
+ggplot(melt_hb, aes(x = gender, y = value, fill = variable)) +
+  geom_boxplot(color = "orange") +
+  labs(title = "Grouped Boxplot for HbA1c_level")
+
+#for blood_glucose_level
+
+melt_bgl <- melted_df %>%  filter(variable == "blood_glucose_level" & gender != "Other")
+
+ggplot(melt_bgl, aes(x = gender, y = value, fill = variable)) +
+  geom_boxplot() +
+  labs(title = "Grouped Boxplot for blood_glucose_level")
+
+
+
+
+```
+For BMi, there are quite a number of outliers outside of the expected range across both genders. Further data is required to understand the probable cause of this 
+
+For the HbA1c_level, it's interesting to see almost the same data points and equal number of outliers for both genders for the variable. 
+
+The same pattern for hbA1c_level is also observed in the blood glusoce level variable.
+
+
+##Relationship
+
+We shall now examine the relationship between age and BMI
+
+Then filter the dataset to reveal when the population are positive to all of hypertension, heart disease, smoking history and has diabetes to understand the relation between age and BMI all over again.
+
+```{r}
+
+#examine relationship between BMI & age
+
+# Create a scatter plot
+ggplot(df, aes(y = bmi, x = age, fill = gender, color = gender)) +
+  geom_point() +
+  labs(title = "Scatter Plot in ggplot2")
+
+
+```
+The plot shows the BMI and age of the population aggregated by their gender.
+As we have more females than male, there are more orange color (color code for females) than there are green (color code for males).
+
+The peak points in the data suggests there are for male populace. Could it be that males have higher BMI than females? Well, the box plot already revealed that these data points for both gender are similar
+
+
+
+
+```{r}
+positive_df <- df %>% filter(hypertension == "1" & heart_disease == "1" & diabetes== "1" & smoking_history == "former" | smoking_history == "current" | smoking_history == "ever")
+
+head(positive_df)
+```
+
+```{r}
+
+
+#examine relationship between BMI & age
+
+# Create a scatter plot
+ggplot(positive_df, aes(y = bmi, x = age, fill = gender, color = gender)) +
+  geom_point() +
+  labs(title = "Scatter Plot in ggplot2")
+
+
+```
+The scatter plot is the relationship between BMI and age of the population who test positive to all cases being considered.
+
+
+To get a deeper understanding of the plot, let's take a look at the boxplots
+
+```{r}
+
+
+ #Melt the data
+long_posi_df <- positive_df %>% select (1,6,7,8) 
+
+melted_long_df <-  melt(long_posi_df, id.vars = "gender")
+
+# Create the  boxplot individually
+
+#for bmi
+
+posi_bmi <- melted_long_df %>%  filter(variable == "bmi" & gender != "Other")
+
+ggplot(posi_bmi, aes(x = gender, y = value, fill = variable)) +
+  geom_boxplot(color = "blue") +
+  labs(title = "Grouped Boxplot for BMI")
+
+
+```
+
+Here again, the outliers are present. This could only be saying that the fraction of the population that tests positive to any of the listed ailments has the BMI to be an anomaly. 
+
+
+As part of this whole process would be to collect and store health data of our potential clients, it would be nice to have a model that reads the data supplied by the customer and determine if they are likely to test positive or negative for diabetes by using a binary logistics model that has been trained by this dataset.
+
+
+We start by creating a new column that categories the age of the user.
+
+0-24 shall be young
+25- 50 shall be adult
+51 and above shall be old
+
+
+
+```{r}
+#create a new column
+
+pred_df <- df %>% mutate(
+      generation = ifelse(age < 24,"Young", 
+                           ifelse(age >= 25 & age <= 50, "Adult","Old"))
+)
+
+head(pred_df, 10)
+```
+
+check for the data type of the new column - generation
+```{r}
+str(pred_df)
+
+```
+
+convert generation and gender columns to factor
+
+```{r}
+pred_df$generation <- as.factor(pred_df$generation)
+pred_df$gender <- as.factor(pred_df$gender)
+
+str(pred_df)
+```
+
+To perform   a binary logistics regression on the data. 
+diabetes is the dependent variable ( a binary/factor column)
+gender, hypertension, heart disease, smoking history, bmi, HbA1c level and blood glucose level are all the independent variable. 
+
+
+split the data into training and testing sets
+
+```{r}
+
+sample <- sample(c(TRUE, FALSE), nrow(pred_df), replace = TRUE, prob = c(0.7,0.3))
+
+train <- pred_df [sample, ]
+
+test <-   pred_df[!sample,]
+
+```
+
+
+
+```{r}
+
+model <- glm( diabetes ~  gender + hypertension + heart_disease + smoking_history + bmi + HbA1c_level + blood_glucose_level + generation, family="binomial", data=train)
+
+#disable scientific notation for model summary
+options(scipen=999)
+
+#view model summary
+summary(model)
+
+
+```
+
+The coefficients in the output indicate the average change in log odds of defaulting. For example, a one unit increase in bmi is associated with an average increase of 0.079457 in the log odds of defaulting.
+
+The p-values in the output also give us an idea of how effective each predictor variable is at predicting the probability of default:
+
+In typical linear regression, we use R2 as a way to assess how well a model fits the data. This number ranges from 0 to 1, with higher values indicating better model fit.
+
+However, there is no such R2 value for logistic regression. Instead, we can compute a metric known as McFadden’s R2, which ranges from 0 to just under 1. Values close to 0 indicate that the model has no predictive power. In practice, values over 0.40 indicate that a model fits the data very well.
+
+```{r}
+
+# Fit the null model (intercept-only)
+null_model <- glm(diabetes ~ 1, family = 'binomial', data = train)
+
+# Calculate McFadden's R-squared
+mcfadden_r2 <- 1 - (logLik(model) / logLik(null_model))
+
+
+# Print McFadden's R-squared
+cat("McFadden's R-Squared:", mcfadden_r2, "\n")
+
+```
+
+  McFadden’s R-squared 0.60623 suggests that the model explains more variance than the null model. In this case, 60.6% of the variation in the dependent variable (e.g., binary outcome) is accounted for by the predictors in your logistic regression model.
+  
+Good Fit: Generally, McFadden’s R-squared values above 0.2 or 0.3 are considered indicative of a good fit. A value of 0.606 suggests that the model performs reasonably well in explaining the observed outcomes.
+
+
+We can also compute the importance of each predictor variable in the model.
+
+
+```{r}
+# Compute variable importance
+var_importance <- varImp(model)
+
+# Print the results
+print(var_importance)
+
+
+```
+
+We can also calculate the VIF values of each variable in the model to see if multicollinearity is a problem.
+
+```{r}
+
+car::vif(model)
+
+```
+
+As a rule of thumb, VIF values above 5 indicate severe multicollinearity. only smoking_history of the  predictor variables in our models have a VIF over 5, this is probable to the variable having so many levels.
+
+
+Use the Model to Make Predictions.
+
+
+Once we’ve fit the logistic regression model, we can then use it to make predictions about whether or not an individual will have diabetes based on the data provided.
+
+
+```{r}
+#select 3 rows from test data
+test_run <- test[c(1:3), ]
+
+#reorder the columns to match with variable displayed above#
+test_run <- test_run %>%  select(1,3,4,5,6,7,8,10)
+
+#view data
+test_run
+
+
+```
+
+
+```{r}
+#predictiom
+
+predict(model, test_run, type="response")
+```
+
+Below is the probability that an individual will test positive for diabetes.
+
+We can use the following code to calculate the probability of default for every individual in our test dataset:
+
+
+```{r}
+predicted <- predict(model, test, type="response")
+```
+
+
+
+```{r}
+head(predicted)
+```
+
+
+References:
+
+https://www.statology.org/logistic-regression-in-r/
+https://search.r-project.org/CRAN/refmans/intervals/html/Intervals-class.html
+https://topepo.github.io/caret/variable-importance.html
+
+
+
+
+
+
