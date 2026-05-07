@@ -1,4 +1,4 @@
----
+h---
 title: 'Recognising Patterns & predicting outcomes. A case study of a diabetes data
   set '
 date: '2024'
@@ -23,7 +23,7 @@ library(caret)
 ```{r}
 # load the data
 
-df <- read.csv("diabetes_prediction_dataset.csv")
+df <- read.csv("health data.csv")
 
 #view the data set
 View(df)
